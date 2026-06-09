@@ -38,7 +38,9 @@ void FAgentZetContextManager::SetLLMClient(TSharedPtr<IAgentZetLLMClient> InLLMC
 void FAgentZetContextManager::ManageContext(
 	const FString& SystemPrompt,
 	const FAgentZetTokenUsage& LastTokenUsage,
-	TFunction<void(const FAgentZetContextManagementResult&)> OnComplete)
+	TFunction<void(const FAgentZetContextManagementResult&)> OnComplete,
+	const FString& EnvironmentDetails,
+	const FString& FoldedCodeContext)
 {
 	if (bIsManaging)
 	{
@@ -110,12 +112,15 @@ void FAgentZetContextManager::ManageContext(
 	// Try condensation first if enabled
 	if (bNeedsCondense && Condenser.IsValid() && !Condenser->IsCondensing())
 	{
-		UE_LOG(LogAgentZet, Log,
-			TEXT("ContextManager: Context at %.1f%% >= %d%% threshold. Attempting condensation..."),
-			ContextPercent, Settings->AutoCondenseThresholdPercent);
+		FAgentZetSummarizeOptions Options;
+		Options.SystemPrompt = SystemPrompt;
+		Options.CustomCondensingPrompt = Settings->CustomCondensingPrompt;
+		Options.bIsAutomaticTrigger = true;
+		Options.EnvironmentDetails = EnvironmentDetails;
+		Options.FoldedCodeContext = FoldedCodeContext;
 
-		Condenser->SummarizeConversation(SystemPrompt,
-			[this, PrevContextTokens, ContextPercent, AllowedTokens, OnComplete]
+		Condenser->SummarizeConversation(Options,
+			[this, OnComplete, PrevContextTokens, ContextPercent, AllowedTokens]
 			(const FAgentZetCondenseResult& CondenseResult)
 			{
 				bIsManaging = false;

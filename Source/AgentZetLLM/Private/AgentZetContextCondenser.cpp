@@ -24,14 +24,92 @@ const FString FAgentZetContextCondenser::SummaryPrompt =
 	TEXT("this system message appeared.\n")
 	TEXT("The goal is for work to continue seamlessly after condensation - as if it never happened.");
 
-const FString FAgentZetContextCondenser::CondenseInstructions =
-	TEXT("Please create a concise but comprehensive summary of our conversation so far. Include:\n")
-	TEXT("1. The main task or goal the user is trying to accomplish\n")
-	TEXT("2. Key decisions and actions taken\n")
-	TEXT("3. Current state of the project/task\n")
-	TEXT("4. Any important context needed to continue the work\n")
-	TEXT("5. The most recent user request and what the next step should be\n\n")
-	TEXT("Focus on information that will allow work to continue seamlessly.");
+// ============================================================================
+// Default Condense Instructions (ported from Zoo-Code supportPrompt.default.CONDENSE)
+// Rich 9-section template with <analysis> wrapper producing higher quality summaries.
+// ============================================================================
+
+const FString FAgentZetContextCondenser::DefaultCondenseInstructions =
+	TEXT("CRITICAL: This summarization request is a SYSTEM OPERATION, not a user message.\n")
+	TEXT("When analyzing \"user requests\" and \"user intent\", completely EXCLUDE this summarization message.\n")
+	TEXT("The \"most recent user request\" and \"Optional Next Step\" must be based on what the user was doing BEFORE this system message appeared.\n")
+	TEXT("The goal is for work to continue seamlessly after condensation - as if it never happened.\n\n")
+
+	TEXT("Your task is to create a detailed summary of the conversation so far, paying close attention to the user's explicit requests and your previous actions.\n")
+	TEXT("This summary should be thorough in capturing technical details, code patterns, and architectural decisions that would be essential for continuing development work without losing context.\n\n")
+
+	TEXT("Before providing your final summary, wrap your analysis in <analysis> tags to organize your thoughts and ensure you've covered all necessary points. In your analysis process:\n\n")
+
+	TEXT("1. Chronologically analyze each message and section of the conversation. For each section thoroughly identify:\n")
+	TEXT("   - The user's explicit requests and intents\n")
+	TEXT("   - Your approach to addressing the user's requests\n")
+	TEXT("   - Key decisions, technical concepts and code patterns\n")
+	TEXT("   - Specific details like file names, full code snippets, function signatures, file edits\n")
+	TEXT("   - Errors that you ran into and how you fixed them\n")
+	TEXT("   - Pay special attention to specific user feedback that you received, especially if the user told you to do something differently.\n")
+	TEXT("2. Double-check for technical accuracy and completeness, addressing each required element thoroughly.\n\n")
+
+	TEXT("Your summary should include the following sections:\n\n")
+
+	TEXT("1. Primary Request and Intent: Capture all of the user's explicit requests and intents in detail\n")
+	TEXT("2. Key Technical Concepts: List all important technical concepts, technologies, and frameworks discussed.\n")
+	TEXT("3. Files and Code Sections: Enumerate specific files and code sections examined, modified, or created. Pay special attention to the most recent messages and include full code snippets where applicable and include a summary of why this file read or edit is important.\n")
+	TEXT("4. Errors and fixes: List all errors that you ran into, and how you fixed them. Pay special attention to specific user feedback that you received, especially if the user told you to do something differently.\n")
+	TEXT("5. Problem Solving: Document problems solved and any ongoing troubleshooting efforts.\n")
+	TEXT("6. All user messages: List ALL user messages that are not tool results. These are critical for understanding the users' feedback and changing intent.\n")
+	TEXT("7. Pending Tasks: Outline any pending tasks that you have explicitly been asked to work on.\n")
+	TEXT("8. Current Work: Describe in detail precisely what was being worked on immediately before this summary request, paying special attention to the most recent messages from both user and assistant. Include file names and code snippets where applicable.\n")
+	TEXT("9. Optional Next Step: List the next step that you will take that is related to the most recent work you were doing. IMPORTANT: ensure that this step is DIRECTLY in line with the user's most recent explicit requests, and the task you were working on immediately before this summary request. If your last task was concluded, then only list next steps if they are explicitly in line with the users request. Do not start on tangential requests or really old requests that were already completed without confirming with the user first.\n\n")
+
+	TEXT("If there is a next step, include direct quotes from the most recent conversation showing exactly what task you were working on and where you left off. This should be verbatim to ensure there's no drift in task interpretation.\n\n")
+
+	TEXT("Here's an example of how your output should be structured:\n\n")
+
+	TEXT("<example>\n")
+	TEXT("<analysis>\n")
+	TEXT("[Your thought process, ensuring all points are covered thoroughly and accurately]\n")
+	TEXT("</analysis>\n\n")
+	TEXT("<summary>\n")
+	TEXT("1. Primary Request and Intent:\n")
+	TEXT("   [Detailed description]\n\n")
+	TEXT("2. Key Technical Concepts:\n")
+	TEXT("   - [Concept 1]\n")
+	TEXT("   - [Concept 2]\n")
+	TEXT("   - [...]\n\n")
+	TEXT("3. Files and Code Sections:\n")
+	TEXT("   - [File Name 1]\n")
+	TEXT("      - [Summary of why this file is important]\n")
+	TEXT("      - [Summary of the changes made to this file, if any]\n")
+	TEXT("      - [Important Code Snippet]\n")
+	TEXT("   - [File Name 2]\n")
+	TEXT("      - [Important Code Snippet]\n")
+	TEXT("   - [...]\n\n")
+	TEXT("4. Errors and fixes:\n")
+	TEXT("   - [Detailed description of error 1]:\n")
+	TEXT("      - [How you fixed the error]\n")
+	TEXT("      - [User feedback on the error if any]\n")
+	TEXT("   - [...]\n\n")
+	TEXT("5. Problem Solving:\n")
+	TEXT("   [Description of solved problems and ongoing troubleshooting]\n\n")
+	TEXT("6. All user messages:\n")
+	TEXT("   - [Detailed non tool use user message]\n")
+	TEXT("   - [...]\n\n")
+	TEXT("7. Pending Tasks:\n")
+	TEXT("   - [Task 1]\n")
+	TEXT("   - [Task 2]\n")
+	TEXT("   - [...]\n\n")
+	TEXT("8. Current Work:\n")
+	TEXT("   [Precise description of current work]\n\n")
+	TEXT("9. Optional Next Step:\n")
+	TEXT("   [Optional Next step to take]\n\n")
+	TEXT("</summary>\n")
+	TEXT("</example>\n\n")
+
+	TEXT("Please provide your summary based on the conversation so far, following this structure and ensuring precision and thoroughness in your response.\n\n")
+
+	TEXT("Note: Any <command> blocks from the original task will be automatically appended to your summary wrapped in <system-reminder> tags. You do not need to include them in your summary text.\n\n")
+
+	TEXT("There may be additional summarization instructions provided in the included context. If so, remember to follow these instructions when creating the above summary.");
 
 // ============================================================================
 // Constructor / Destructor
@@ -48,7 +126,6 @@ FAgentZetContextCondenser::FAgentZetContextCondenser(
 
 FAgentZetContextCondenser::~FAgentZetContextCondenser()
 {
-	// Unbind any active delegate handles
 	if (LLMClient.IsValid())
 	{
 		if (StreamingHandle.IsValid())
@@ -61,13 +138,106 @@ FAgentZetContextCondenser::~FAgentZetContextCondenser()
 }
 
 // ============================================================================
-// SummarizeConversation
+// GetMessagesSinceLastSummary (incremental summarization)
+// ============================================================================
+
+TArray<FAgentZetMessage> FAgentZetContextCondenser::GetMessagesSinceLastSummary(const TArray<FAgentZetMessage>& Messages)
+{
+	int32 LastSummaryIdx = -1;
+	for (int32 i = Messages.Num() - 1; i >= 0; --i)
+	{
+		if (Messages[i].bIsSummary)
+		{
+			LastSummaryIdx = i;
+			break;
+		}
+	}
+
+	if (LastSummaryIdx == -1)
+	{
+		return Messages;
+	}
+
+	TArray<FAgentZetMessage> SinceLastSummary;
+	for (int32 i = LastSummaryIdx; i < Messages.Num(); ++i)
+	{
+		SinceLastSummary.Add(Messages[i]);
+	}
+
+	return SinceLastSummary;
+}
+
+// ============================================================================
+// ExtractCommandBlocks
+// ============================================================================
+
+FString FAgentZetContextCondenser::ExtractCommandBlocks(const FAgentZetMessage& Message)
+{
+	FString Text;
+
+	if (Message.Role == EAgentZetMessageRole::Assistant && !Message.ContentBlocksJson.IsEmpty())
+	{
+		TArray<TSharedPtr<FJsonValue>> ContentBlocks;
+		TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message.ContentBlocksJson);
+		if (FJsonSerializer::Deserialize(Reader, ContentBlocks))
+		{
+			for (const TSharedPtr<FJsonValue>& Block : ContentBlocks)
+			{
+				const TSharedPtr<FJsonObject>* BlockObj = nullptr;
+				if (!Block->TryGetObject(BlockObj)) continue;
+				FString BlockType;
+				(*BlockObj)->TryGetStringField(TEXT("type"), BlockType);
+				if (BlockType == TEXT("text"))
+				{
+					FString BlockText;
+					(*BlockObj)->TryGetStringField(TEXT("text"), BlockText);
+					Text += BlockText;
+				}
+			}
+		}
+	}
+	else
+	{
+		Text = Message.Content;
+	}
+
+	if (Text.IsEmpty()) return FString();
+
+	FString Result;
+	const FString StartTag = TEXT("<command");
+	const FString EndTag = TEXT("</command>");
+
+	int32 SearchStart = 0;
+	while (true)
+	{
+		int32 StartIdx = Text.Find(StartTag, ESearchCase::IgnoreCase, ESearchDir::FromStart, SearchStart);
+		if (StartIdx == INDEX_NONE) break;
+
+		int32 TagEnd = Text.Find(TEXT(">"), ESearchCase::CaseSensitive, ESearchDir::FromStart, StartIdx);
+		if (TagEnd == INDEX_NONE) break;
+
+		int32 EndIdx = Text.Find(EndTag, ESearchCase::IgnoreCase, ESearchDir::FromStart, TagEnd);
+		if (EndIdx == INDEX_NONE) break;
+
+		int32 BlockEnd = EndIdx + EndTag.Len();
+		FString CommandBlock = Text.Mid(StartIdx, BlockEnd - StartIdx);
+
+		if (!Result.IsEmpty()) Result += TEXT("\n");
+		Result += CommandBlock;
+
+		SearchStart = BlockEnd;
+	}
+
+	return Result;
+}
+
+// ============================================================================
+// SummarizeConversation (v3.1 — matches Zoo-Code flow)
 // ============================================================================
 
 void FAgentZetContextCondenser::SummarizeConversation(
-	const FString& SystemPrompt,
-	TFunction<void(const FAgentZetCondenseResult&)> OnComplete,
-	const FString& FoldedCodeContext)
+	const FAgentZetSummarizeOptions& Options,
+	TFunction<void(const FAgentZetCondenseResult&)> OnComplete)
 {
 	if (bIsCondensing)
 	{
@@ -90,13 +260,45 @@ void FAgentZetContextCondenser::SummarizeConversation(
 	}
 
 	const TArray<FAgentZetMessage>& FullHistory = ConversationManager->GetHistory();
-	if (FullHistory.Num() <= 1)
+
+	// Get messages since last summary (incremental summarization)
+	TArray<FAgentZetMessage> MessagesToSummarize = GetMessagesSinceLastSummary(FullHistory);
+
+	if (MessagesToSummarize.Num() <= 1)
 	{
 		FAgentZetCondenseResult FailResult;
 		FailResult.bSuccess = false;
-		FailResult.ErrorMessage = TEXT("Not enough messages to condense.");
+		FailResult.ErrorMessage = MessagesToSummarize.Num() <= 1
+			? TEXT("Not enough messages to condense.")
+			: TEXT("Context was recently condensed; skipping this attempt.");
 		OnComplete(FailResult);
 		return;
+	}
+
+	// Check for recent summary in messages to summarize
+	bool bRecentSummaryExists = false;
+	for (const FAgentZetMessage& Msg : MessagesToSummarize)
+	{
+		if (Msg.bIsSummary)
+		{
+			bRecentSummaryExists = true;
+			break;
+		}
+	}
+	if (bRecentSummaryExists && MessagesToSummarize.Num() <= 2)
+	{
+		FAgentZetCondenseResult FailResult;
+		FailResult.bSuccess = false;
+		FailResult.ErrorMessage = TEXT("Context was recently condensed; skipping this attempt.");
+		OnComplete(FailResult);
+		return;
+	}
+
+	// Extract <command> blocks from the first message (original task)
+	FString CommandBlocks;
+	if (FullHistory.Num() > 0)
+	{
+		CommandBlocks = ExtractCommandBlocks(FullHistory[0]);
 	}
 
 	bIsCondensing = true;
@@ -104,32 +306,44 @@ void FAgentZetContextCondenser::SummarizeConversation(
 	PendingCallback = OnComplete;
 
 	// Prepare messages: convert tool blocks to text + inject synthetic tool results
-	TArray<FAgentZetMessage> MessagesToSummarize = ConvertToolBlocksToText(FullHistory);
-	InjectSyntheticToolResults(MessagesToSummarize);
+	TArray<FAgentZetMessage> PreparedMessages = ConvertToolBlocksToText(MessagesToSummarize);
+	InjectSyntheticToolResults(PreparedMessages);
 
-	// Add the condense instructions as the final user message
-	// Ported from Roo Code: inject folded code context into the condensation
-	// so that Claude's summary includes awareness of code structure.
-	// This becomes a <file-context> block preserved in the summary message.
-	FString InstructionsContent = CondenseInstructions;
-	if (!FoldedCodeContext.IsEmpty())
+	// Choose condense instructions: custom prompt if provided, otherwise rich default
+	FString InstructionsContent;
+	if (!Options.CustomCondensingPrompt.IsEmpty())
 	{
-		InstructionsContent += TEXT("\n\n")
-			TEXT("The following code structure context should be preserved in your summary.\n")
-			TEXT("Include a brief note about the key files and their structure:\n\n")
-			+ FoldedCodeContext;
+		InstructionsContent = Options.CustomCondensingPrompt;
+	}
+	else
+	{
+		InstructionsContent = DefaultCondenseInstructions;
 	}
 
+	// Inject folded code context as a system-reminder in the instructions
+	if (!Options.FoldedCodeContext.IsEmpty())
+	{
+		InstructionsContent += TEXT("\n\n<system-reminder>\n## Code Structure Context\n");
+		InstructionsContent += TEXT("The following code structure was seen during this task. Include awareness of these files in your summary:\n\n");
+		InstructionsContent += Options.FoldedCodeContext;
+		InstructionsContent += TEXT("\n</system-reminder>");
+	}
+
+	// Add the condense instructions as the final user message
 	FAgentZetMessage InstructionsMsg;
 	InstructionsMsg.MessageId = FGuid::NewGuid();
 	InstructionsMsg.Role = EAgentZetMessageRole::User;
 	InstructionsMsg.Content = InstructionsContent;
 	InstructionsMsg.Timestamp = FDateTime::UtcNow();
-	MessagesToSummarize.Add(InstructionsMsg);
+	PreparedMessages.Add(InstructionsMsg);
+
+	// Capture options needed for ApplyCondensation after the async response
+	const FString CapturedCommandBlocks = CommandBlocks;
+	const FString CapturedFoldedCodeContext = Options.FoldedCodeContext;
+	const bool bCapturedIsAutomaticTrigger = Options.bIsAutomaticTrigger;
+	const FString CapturedEnvironmentDetails = Options.EnvironmentDetails;
 
 	// Bind delegates for the summarization response
-	// We use temporary lambda captures to collect the summary text
-	FGuid SummaryMessageId;
 	TSharedPtr<FString> SummaryAccumulator = MakeShared<FString>();
 	TSharedPtr<bool> bCompleted = MakeShared<bool>(false);
 
@@ -140,12 +354,14 @@ void FAgentZetContextCondenser::SummarizeConversation(
 		});
 
 	RequestCompletedHandle = LLMClient->OnRequestCompleted().AddLambda(
-		[this, SummaryAccumulator, bCompleted](bool bSuccess)
+		[this, SummaryAccumulator, bCompleted,
+		 CapturedCommandBlocks, CapturedFoldedCodeContext,
+		 bCapturedIsAutomaticTrigger, CapturedEnvironmentDetails]
+		(bool bSuccess)
 		{
 			if (*bCompleted) return;
 			*bCompleted = true;
 
-			// Unbind delegates
 			if (LLMClient.IsValid())
 			{
 				LLMClient->OnStreamingText().Remove(StreamingHandle);
@@ -163,29 +379,34 @@ void FAgentZetContextCondenser::SummarizeConversation(
 				Result.ErrorMessage = TEXT("Condensation API call failed or returned empty summary.");
 				UE_LOG(LogAgentZet, Error, TEXT("ContextCondenser: %s"), *Result.ErrorMessage);
 
-				// CRITICAL: Move callback to local before invoking.
-				// The callback may trigger state changes that destroy this condenser,
-				// making 'this' invalid. Writing PendingCallback=nullptr after that = crash.
 				auto LocalCallback = MoveTemp(PendingCallback);
 				PendingCallback = nullptr;
-				if (LocalCallback)
-				{
-					LocalCallback(Result);
-				}
+				if (LocalCallback) { LocalCallback(Result); }
 				return;
 			}
 
 			FString Summary = SummaryAccumulator->TrimStartAndEnd();
+
+			if (Summary.IsEmpty())
+			{
+				Result.bSuccess = false;
+				Result.ErrorMessage = TEXT("Condensation returned empty summary.");
+				UE_LOG(LogAgentZet, Error, TEXT("ContextCondenser: %s"), *Result.ErrorMessage);
+
+				auto LocalCallback = MoveTemp(PendingCallback);
+				PendingCallback = nullptr;
+				if (LocalCallback) { LocalCallback(Result); }
+				return;
+			}
+
 			Result.bSuccess = true;
 			Result.Summary = Summary;
-
-			// Generate a unique condense ID
 			Result.CondenseId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
 
-			// Apply condensation to the conversation manager
-			ApplyCondensation(Summary, Result);
+			ApplyCondensation(Summary, Result,
+				CapturedCommandBlocks, CapturedFoldedCodeContext,
+				bCapturedIsAutomaticTrigger, CapturedEnvironmentDetails);
 
-			// Compute the new token count from effective history after condensation
 			if (ConversationManager.IsValid())
 			{
 				TArray<FAgentZetMessage> EffectiveAfter = ConversationManager->GetEffectiveHistory();
@@ -196,24 +417,17 @@ void FAgentZetContextCondenser::SummarizeConversation(
 				TEXT("ContextCondenser: Condensed %d messages. Summary length: %d chars. New context: ~%d tokens. CondenseId: %s"),
 				ConversationManager->GetMessageCount(), Summary.Len(), Result.NewContextTokens, *Result.CondenseId);
 
-			// CRITICAL: Move callback to local before invoking.
-			// The callback may trigger state changes that destroy this condenser,
-			// making 'this' invalid. Writing PendingCallback=nullptr after that = crash.
 			auto LocalCallback = MoveTemp(PendingCallback);
 			PendingCallback = nullptr;
-			if (LocalCallback)
-			{
-				LocalCallback(Result);
-			}
+			if (LocalCallback) { LocalCallback(Result); }
 		});
 
 	// Send the summarization request — no tool schemas (text-only)
-	LLMClient->SendMessage(MessagesToSummarize, SummaryPrompt, TArray<TSharedPtr<FJsonObject>>());
+	LLMClient->SendMessage(PreparedMessages, SummaryPrompt, TArray<TSharedPtr<FJsonObject>>());
 }
 
 // ============================================================================
-// Convert tool blocks to text (for summarization without tools param)
-// Ported from Roo Code's convertToolBlocksToText() in condense/index.ts
+// Convert tool blocks to text
 // ============================================================================
 
 TArray<FAgentZetMessage> FAgentZetContextCondenser::ConvertToolBlocksToText(const TArray<FAgentZetMessage>& Messages)
@@ -226,7 +440,6 @@ TArray<FAgentZetMessage> FAgentZetContextCondenser::ConvertToolBlocksToText(cons
 
 		if (Msg.Role == EAgentZetMessageRole::Assistant && !Msg.ContentBlocksJson.IsEmpty())
 		{
-			// Parse content blocks and convert tool_use to text
 			TArray<TSharedPtr<FJsonValue>> ContentBlocks;
 			TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Msg.ContentBlocksJson);
 			if (FJsonSerializer::Deserialize(Reader, ContentBlocks))
@@ -263,12 +476,11 @@ TArray<FAgentZetMessage> FAgentZetContextCondenser::ConvertToolBlocksToText(cons
 					}
 				}
 				ConvertedMsg.Content = TextContent;
-				ConvertedMsg.ContentBlocksJson.Empty(); // Remove blocks so client sends as plain text
+				ConvertedMsg.ContentBlocksJson.Empty();
 			}
 		}
 		else if (Msg.Role == EAgentZetMessageRole::ToolResult)
 		{
-			// Convert tool_result to text representation
 			FString Prefix = TEXT("[Tool Result]\n");
 			ConvertedMsg.Content = Prefix + Msg.Content;
 		}
@@ -280,15 +492,12 @@ TArray<FAgentZetMessage> FAgentZetContextCondenser::ConvertToolBlocksToText(cons
 }
 
 // ============================================================================
-// Inject synthetic tool results for orphaned tool_calls
-// Ported from Roo Code's injectSyntheticToolResults() in condense/index.ts
+// Inject synthetic tool results
 // ============================================================================
 
 void FAgentZetContextCondenser::InjectSyntheticToolResults(TArray<FAgentZetMessage>& Messages)
 {
-	// Find all tool_use IDs in assistant messages
 	TSet<FString> ToolCallIds;
-	// Find all tool_result IDs in user messages
 	TSet<FString> ToolResultIds;
 
 	for (const FAgentZetMessage& Msg : Messages)
@@ -321,7 +530,6 @@ void FAgentZetContextCondenser::InjectSyntheticToolResults(TArray<FAgentZetMessa
 		}
 	}
 
-	// Find orphans (tool_calls without matching tool_results)
 	TArray<FString> OrphanIds;
 	for (const FString& Id : ToolCallIds)
 	{
@@ -333,7 +541,6 @@ void FAgentZetContextCondenser::InjectSyntheticToolResults(TArray<FAgentZetMessa
 
 	if (OrphanIds.Num() == 0) return;
 
-	// Inject synthetic tool_results for each orphan
 	for (const FString& OrphanId : OrphanIds)
 	{
 		FAgentZetMessage SyntheticResult;
@@ -350,17 +557,19 @@ void FAgentZetContextCondenser::InjectSyntheticToolResults(TArray<FAgentZetMessa
 }
 
 // ============================================================================
-// Apply condensation to the conversation manager
+// Apply condensation (v3.1 — structured summary with system-reminder blocks)
 // ============================================================================
 
-void FAgentZetContextCondenser::ApplyCondensation(const FString& Summary, const FAgentZetCondenseResult& Result)
+void FAgentZetContextCondenser::ApplyCondensation(
+	const FString& Summary, const FAgentZetCondenseResult& Result,
+	const FString& CommandBlocks, const FString& FoldedCodeContext,
+	bool bIsAutomaticTrigger, const FString& EnvironmentDetails)
 {
 	if (!ConversationManager.IsValid()) return;
 
 	TArray<FAgentZetMessage>& History = const_cast<TArray<FAgentZetMessage>&>(ConversationManager->GetHistory());
 
-	// Tag ALL existing messages with CondenseParent = Result.CondenseId
-	// (unless they already have a CondenseParent from a previous condensation)
+	// Tag ALL existing messages with CondenseParent (fresh start model)
 	for (FAgentZetMessage& Msg : History)
 	{
 		if (Msg.CondenseParent.IsEmpty() && !Msg.bIsSummary)
@@ -369,14 +578,47 @@ void FAgentZetContextCondenser::ApplyCondensation(const FString& Summary, const 
 		}
 	}
 
+	// Build structured summary content (mirrors Zoo-Code's multi-block summary)
+	FString SummaryContent;
+	SummaryContent += TEXT("## Conversation Summary\n");
+	SummaryContent += Summary;
+
+	// Add preserved <command> blocks as system-reminder
+	if (!CommandBlocks.IsEmpty())
+	{
+		SummaryContent += TEXT("\n\n<system-reminder>\n## Active Workflows\n");
+		SummaryContent += TEXT("The following directives must be maintained across all future condensings:\n");
+		SummaryContent += CommandBlocks;
+		SummaryContent += TEXT("\n</system-reminder>");
+	}
+
+	// Add folded file context as system-reminder
+	if (!FoldedCodeContext.IsEmpty())
+	{
+		SummaryContent += TEXT("\n\n<system-reminder>\n## File Context (from task)\n");
+		SummaryContent += FoldedCodeContext;
+		SummaryContent += TEXT("\n</system-reminder>");
+	}
+
+	// Add environment details for auto-condense only
+	if (bIsAutomaticTrigger && !EnvironmentDetails.IsEmpty())
+	{
+		SummaryContent += TEXT("\n\n");
+		SummaryContent += EnvironmentDetails;
+	}
+
 	// Insert the summary message at the end
 	FAgentZetMessage SummaryMsg;
 	SummaryMsg.MessageId = FGuid::NewGuid();
 	SummaryMsg.Role = EAgentZetMessageRole::User;
-	SummaryMsg.Content = FString::Printf(TEXT("## Conversation Summary\n%s"), *Summary);
+	SummaryMsg.Content = SummaryContent;
 	SummaryMsg.Timestamp = FDateTime::UtcNow();
 	SummaryMsg.bIsSummary = true;
 	SummaryMsg.CondenseId = Result.CondenseId;
 
 	History.Add(SummaryMsg);
+
+	UE_LOG(LogAgentZet, Log,
+		TEXT("ContextCondenser: Summary message created with %d chars content. CondenseId=%s"),
+		SummaryContent.Len(), *Result.CondenseId);
 }

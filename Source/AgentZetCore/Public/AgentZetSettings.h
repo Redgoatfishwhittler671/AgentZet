@@ -545,14 +545,18 @@ public:
 	 *  Default 80% leaves room for the response before hitting the context limit. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Context|Management",
 		meta = (DisplayName = "Auto-Condense Threshold (%)", ClampMin = "5", ClampMax = "100",
-		EditCondition = "bAutoCondenseContext", EditConditionHides))
+			ToolTip = "Context usage percentage at which auto-condensation triggers. Default 80%."))
 	int32 AutoCondenseThresholdPercent;
 
-	// ============================================================================
-	// UI Settings
-	// ============================================================================
+	/** Custom instructions appended to the LLM summarization prompt during condensation.
+	 *  Leave empty to use the built-in rich 9-section template from Zoo-Code.
+	 *  Use this to inject project-specific context that should be preserved across condensings. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Context|Management",
+		meta = (DisplayName = "Custom Condensing Prompt", MultiLine = "true",
+			ToolTip = "Optional custom instructions for the LLM summarization prompt during context condensation. Leave empty for defaults."))
+	FString CustomCondensingPrompt;
 
-	/** Font size for chat messages */
+	/** Font size for chat messages (default 10) */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "UI",
 		meta = (DisplayName = "Chat Font Size", ClampMin = "8", ClampMax = "24"))
 	int32 ChatFontSize;

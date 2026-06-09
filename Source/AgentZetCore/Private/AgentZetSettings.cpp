@@ -103,9 +103,6 @@ UAgentZetDeveloperSettings::UAgentZetDeveloperSettings()
 
 	// Context Management defaults (auto-condense)
 	bAutoCondenseContext = true;
-	AutoCondenseThresholdPercent = 80; // Trigger at 80% context usage
-
-	// UI defaults
 	ChatFontSize = 12;
 	bShowTimestamps = true;
 	bEnableStreamingDisplay = true;

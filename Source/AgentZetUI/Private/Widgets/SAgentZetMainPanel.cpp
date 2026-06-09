@@ -2753,21 +2753,16 @@ FReply SAgentZetMainPanel::OnCondenseContextClicked()
 
     FString SystemPrompt = BuildSystemPrompt();
 
-    // Capture for async lambda
-    TSharedPtr<SAgentZetMainPanel> ThisWidget = SharedThis(this);
-    TSharedPtr<FAgentZetContextCondenser> CondenserRef = Condenser; // prevent GC
+    FAgentZetSummarizeOptions Options;
+    Options.SystemPrompt = SystemPrompt;
+    Options.bIsAutomaticTrigger = false;  // Manual trigger
 
-    // Pass folded code structure context so it's preserved in the condensed summary
-    // (Roo Code's foldedFileContext.ts pattern — code signatures survive condensation)
-    const FString FoldedCtx = CachedCodeStructureContext;
-    Condenser->SummarizeConversation(SystemPrompt,
-        [ThisWidget, CondenserRef](const FAgentZetCondenseResult& Result)
+    Condenser->SummarizeConversation(Options,
+        [this](const FAgentZetCondenseResult& Result)
         {
-            if (!ThisWidget.IsValid()) return;
-
-            if (ThisWidget->ProgressOverlay.IsValid())
+            if (ProgressOverlay.IsValid())
             {
-                ThisWidget->ProgressOverlay->HideProgress();
+                ProgressOverlay->HideProgress();
             }
 
             if (Result.bSuccess)
@@ -2775,26 +2770,26 @@ FReply SAgentZetMainPanel::OnCondenseContextClicked()
                 FAgentZetMessage SuccessMsg(EAgentZetMessageRole::System,
                     FString::Printf(TEXT("📦 Context condensed successfully! New context: ~%d tokens. Summary:\n%s"),
                         Result.NewContextTokens, *Result.Summary.Left(300)));
-                ThisWidget->ChatView->AddMessage(SuccessMsg);
+                ChatView->AddMessage(SuccessMsg);
 
                 // Update context usage
-                const int32 WindowTokens = ThisWidget->GetContextWindowTokens();
+                const int32 WindowTokens = GetContextWindowTokens();
                 if (WindowTokens > 0)
                 {
-                    ThisWidget->ContextUsagePercent =
+                    ContextUsagePercent =
                         (float(Result.NewContextTokens) / float(WindowTokens)) * 100.0f;
                 }
 
                 UE_LOG(LogAgentZet, Log,
                     TEXT("MainPanel: Manual condense succeeded. ~%d tokens remaining."),
                     Result.NewContextTokens);
-                ThisWidget->SaveTabsToDisk();
+                SaveTabsToDisk();
             }
             else
             {
                 FAgentZetMessage ErrorMsg(EAgentZetMessageRole::Error,
                     FString::Printf(TEXT("❌ Context condensation failed: %s"), *Result.ErrorMessage));
-                ThisWidget->ChatView->AddMessage(ErrorMsg);
+                ChatView->AddMessage(ErrorMsg);
 
                 UE_LOG(LogAgentZet, Warning,
                     TEXT("MainPanel: Manual condense failed: %s"), *Result.ErrorMessage);

@@ -828,23 +828,18 @@ void FAgentZetChatSession::OnRequestCompleted(bool bSuccess)
 			SystemPrompt = OnGetSystemPromptString.Execute();
 		}
 
-		// Capture for async lambda
-		TSharedPtr<FAgentZetChatSession> ThisSession = SharedThis(this);
-
 		ContextManager->ManageContext(SystemPrompt, LastResponseTokenUsage,
-			[ThisSession](const FAgentZetContextManagementResult& CtxResult)
+			[this](const FAgentZetContextManagementResult& CtxResult)
 			{
-				if (!ThisSession.IsValid()) return;
-
 				if (CtxResult.bDidCondense)
 				{
 					FAgentZetMessage CtxMsg(EAgentZetMessageRole::System,
 						FString::Printf(TEXT("📦 Context condensed (was %.0f%% full). Summary created."),
 							CtxResult.ContextPercent));
-					ThisSession->OnMessageAdded.Broadcast(CtxMsg);
+					OnMessageAdded.Broadcast(CtxMsg);
 
 					UE_LOG(LogAgentZet, Log,
-						TEXT("MainPanel: Context condensed. Was %.0f%%, now ~%d tokens."),
+						TEXT("ChatSession: Context condensed. Was %.0f%%, now ~%d tokens."),
 						CtxResult.ContextPercent, CtxResult.NewContextTokens);
 				}
 				else if (CtxResult.bDidTruncate)
@@ -852,21 +847,16 @@ void FAgentZetChatSession::OnRequestCompleted(bool bSuccess)
 					FAgentZetMessage CtxMsg(EAgentZetMessageRole::System,
 						FString::Printf(TEXT("✂ Context truncated: %d old messages hidden (was %.0f%% full)."),
 							CtxResult.MessagesRemoved, CtxResult.ContextPercent));
-					ThisSession->OnMessageAdded.Broadcast(CtxMsg);
+					OnMessageAdded.Broadcast(CtxMsg);
 
 					UE_LOG(LogAgentZet, Log,
-						TEXT("MainPanel: Context truncated. Removed %d messages. Was %.0f%% full."),
+						TEXT("ChatSession: Context truncated. Removed %d messages. Was %.0f%% full."),
 						CtxResult.MessagesRemoved, CtxResult.ContextPercent);
 				}
 
-				// UI update logic has been moved out of this class
-				ThisSession->OnSaveTabsToDisk.ExecuteIfBound();
-
-				// Tell UI to regenerate context/UI
-				ThisSession->OnSessionCompletedContextManagement.Broadcast();
-
-				// Now continue with tool call processing
-				ThisSession->OnRequestCompletedPostContextManagement();
+				OnSaveTabsToDisk.ExecuteIfBound();
+				OnSessionCompletedContextManagement.Broadcast();
+				OnRequestCompletedPostContextManagement();
 			});
 		return; // Wait for context management to complete
 	}

@@ -68,13 +68,25 @@ public:
 	 * @param LastTokenUsage  Token usage reported by the last API response
 	 * @param OnComplete      Callback fired on game thread with the result
 	 */
-	void ManageContext(
-		const FString& SystemPrompt,
-		const FAgentZetTokenUsage& LastTokenUsage,
-		TFunction<void(const FAgentZetContextManagementResult&)> OnComplete);
 
 	/** Update the LLM client (called when settings change) */
 	void SetLLMClient(TSharedPtr<IAgentZetLLMClient> InLLMClient);
+
+	/**
+	 * Checks and manages context after an API response.
+	 *
+	 * @param SystemPrompt       Current system prompt (used for token estimation)
+	 * @param LastTokenUsage     Token usage reported by the last API response
+	 * @param OnComplete         Callback fired on game thread with the result
+	 * @param EnvironmentDetails Optional environment details injected for auto-condense
+	 * @param FoldedCodeContext  Optional code structure context to preserve across condensings
+	 */
+	void ManageContext(
+		const FString& SystemPrompt,
+		const FAgentZetTokenUsage& LastTokenUsage,
+		TFunction<void(const FAgentZetContextManagementResult&)> OnComplete,
+		const FString& EnvironmentDetails = FString(),
+		const FString& FoldedCodeContext = FString());
 
 	/** True if context management is currently in progress */
 	bool IsManaging() const { return bIsManaging; }
